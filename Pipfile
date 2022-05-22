@@ -4,6 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+numpy = "==1.22.4"
+pillow = "==9.1.1"
+opencv-python = "==4.5.5.64"
+pypiwin32 = "==223"
+pywin32 = "==304"
+pyautogui = "*"
 
 [dev-packages]
 
