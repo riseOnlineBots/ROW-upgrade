@@ -10,6 +10,7 @@ opencv-python = "==4.5.5.64"
 pypiwin32 = "==223"
 pywin32 = "==304"
 pyautogui = "*"
+pynput = "*"
 
 [dev-packages]
 
