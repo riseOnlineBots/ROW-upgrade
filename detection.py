@@ -1,22 +1,27 @@
 from threading import Thread, Lock
 
-import cv2 as cv
-
 
 class Detection:
-    # threading properties
     stopped = True
     lock = None
-    rectangles = []
-    # properties
-    cascade = None
+
     screenshot = None
 
-    def __init__(self, model_file_path):
+    upgradable_item_positions = []
+    upgrade_scroll_position = None
+
+    def __init__(self):
         # create a thread lock object
         self.lock = Lock()
-        # load the trained model
-        self.cascade = cv.CascadeClassifier(model_file_path)
+        # self.cascade = cv.CascadeClassifier(model_file_path)
+
+    def set_upgrade_scroll_position(self, upgrade_scroll_position):
+        print('Setting the position of the upgrade scroll. - ', upgrade_scroll_position)
+        self.upgrade_scroll_position = upgrade_scroll_position
+
+    def set_upgradable_item_positions(self, upgradable_item_positions):
+        print('Setting the positions of the upgradable items. - ', upgradable_item_positions)
+        self.upgradable_item_positions = upgradable_item_positions
 
     def update(self, screenshot):
         self.lock.acquire()
@@ -36,8 +41,7 @@ class Detection:
         while not self.stopped:
             if not self.screenshot is None:
                 # do object detection
-                rectangles = self.cascade.detectMultiScale(self.screenshot)
+                # rectangles = self.cascade.detectMultiScale(self.screenshot)
                 # lock the thread while updating the results
                 self.lock.acquire()
-                self.rectangles = rectangles
                 self.lock.release()

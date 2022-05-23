@@ -1,11 +1,9 @@
 import os
-import sys
-import threading
+from threading import Thread
 from time import time, sleep
 
 import cv2 as cv
-import pyautogui
-from pynput import keyboard
+import pyautogui as py
 
 from vision import Vision
 from windowcapture import WindowCapture
@@ -14,60 +12,147 @@ from windowcapture import WindowCapture
 # Doing this because I'll be putting the files from each video in their own folder on GitHub
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# for i in list(range(3))[::-1]:
-#     print('Starting in ', i + 1)
-#     sleep(1)
 
-# initialize the WindowCapture class
+class StateEnum:
+    INITIALIZING = 0
+    READY = 1
+    UPGRADING = 2
+    UPGRADED = 3
+    INVENTORY_COMPLETED = 4  # Lets us re-initialize when whole inventory is completed.
+
+
 wincap = WindowCapture(None)
-# initialize the Vision class
-vision_limestone = Vision('magePad.jpg', 'commonUpgradeScroll.jpg')
+vision = Vision('commonUpgradeScroll.jpg', 'magePad.jpg', 'confirmButton.jpg')
 
-running = False
+upgrade_scroll_position = []
+confirm_button_position = []
+item_positions = []
+upgraded_items = []
+
+for i in list(range(3))[::-1]:
+    print('Starting in ', i + 1)
+    sleep(1)
 
 loop_time = time()
 
+state = StateEnum.INITIALIZING
+
+
+def detect_upgrade_scroll():
+    global upgrade_scroll_position
+
+    if len(upgrade_scroll_position):
+        return upgrade_scroll_position
+
+    rectangles = vision.findUpgradeScroll(screenshot, 0.7)
+    positions = vision.get_click_points(rectangles)
+    target = wincap.get_screen_position(positions[0])
+
+    upgrade_scroll_position = target
+
+    return rectangles
+
+
+def detect_confirm_button():
+    global confirm_button_position
+
+    if len(confirm_button_position):
+        return confirm_button_position
+
+    rectangles = vision.findConfirmButton(screenshot, 0.7)
+    positions = vision.get_click_points(rectangles)
+    target = wincap.get_screen_position(positions[0])
+
+    confirm_button_position = target
+
+    return rectangles
+
+
+def click_upgrade_scroll():
+    global upgrade_scroll_position
+
+    x = upgrade_scroll_position[0]
+    y = upgrade_scroll_position[1]
+
+    py.moveTo(x, y)
+    py.click(button='right', x=x, y=y)
+
+
+def upgrade_the_item():
+    global confirm_button_position
+
+    x = confirm_button_position[0]
+    y = confirm_button_position[1]
+
+    py.moveTo(x, y)
+    py.click(x=x, y=y)
+    py.moveTo(x + 60, y + 50)
+    py.click()
+    print('An item is upgraded.')
+
+
+def initialize_upgradable_items():
+    global item_positions
+
+    if len(item_positions):
+        return item_positions
+
+    rectangles = vision.find(screenshot, 0.8)
+    item_positions = vision.get_click_points(rectangles)
+
+
+def detect_and_click_first_upgradable_item():
+    global item_positions, upgraded_items
+
+    for item in item_positions:
+        if item not in upgraded_items:
+            x, y = item
+            py.click(button='right', x=x, y=y)
+            upgraded_items.append(item)
+            break
+
 
 def run():
-    while running:
-        while True:
+    global upgraded_items, item_positions
+    print(len(item_positions), len(upgraded_items))
 
-            # get an updated image of the game
-            screenshot = wincap.get_screenshot()
-
-            # display the processed image
-            # vision_limestone.find(screenshot, 0.7)
-            points = vision_limestone.findUpgradeScroll(screenshot, 0.7)
-
-            if len(points):
-                for (x, y) in points:
-                    pyautogui.moveTo(x, y)
-
-            cv.imshow('Matches', screenshot)
-
-
-def stop():
-    global running
-    running = False
-    sys.exit()
+    if len(item_positions) == len(upgraded_items):
+        print('All items are upgraded. Preparing the next stage.')
+        upgraded_items = []
+        item_positions = []
+        sleep(1)
+        initialize_upgradable_items()
+        run()
+    else:
+        detect_and_click_first_upgradable_item()
+        sleep(0.2)
+        click_upgrade_scroll()
+        sleep(0.2)
+        upgrade_the_item()
+        sleep(0.2)  # In case 'No Animation' option gets removed from the game, improve the sleep duration.
 
 
-def on_press(key):
-    global running
+while True:
+    screenshot = wincap.get_screenshot()
 
-    if key == keyboard.Key.esc:
-        stop()
-        return False  # Stops the listener.
-    try:
-        k = key.char  # Single-char keys.
-    except:
-        k = key.name
-    if k in ['f12']:
-        running = True
-        threading.Thread(target=run).start()
+    # upgrade_scroll_rectangles = detectAndClickUpgradeScroll()
+    # upgrade_scroll_positions = vision.get_click_points(upgrade_scroll_rectangles)
+    # detected_upgrade_scroll = vision.draw_crosshairs(screenshot, upgrade_scroll_positions)
+    # cv.imshow('Display', detected_upgrade_scroll)
 
+    # rectangles = vision.findConfirmButton(screenshot, 0.7)
+    # positions = vision.get_click_points(rectangles)
+    # image = vision.draw_crosshairs(screenshot, positions)
+    # cv.imshow('Display', image)
 
-with keyboard.Listener(on_press=on_press) as listener:
-    listener.join()
+    detect_upgrade_scroll()
+    detect_confirm_button()
+    initialize_upgradable_items()
 
-print('Done.')
+    thread = Thread(target=run())
+
+    key = cv.waitKey(1) & 0xFF
+
+    if key == ord("q"):
+        cv.destroyAllWindows()
+        break
