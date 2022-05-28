@@ -1,5 +1,5 @@
 import os
-from threading import Thread
+import sys
 from time import time, sleep
 
 import cv2 as cv
@@ -21,32 +21,54 @@ class StateEnum:
     INVENTORY_COMPLETED = 4  # Lets us re-initialize when whole inventory is completed.
 
 
+class DebugEnum:
+    UPGRADE_SCROLL = 0
+    UPGRADABLE_ITEMS = 1
+    MONEY = 2
+    CONFIRM_BUTTON = 3
+    NO_ANIMATION = 4
+
+
 wincap = WindowCapture(None)
-vision = Vision('commonUpgradeScroll.jpg', 'magePad.jpg', 'confirmButton.jpg')
+vision = Vision('commonUpgradeScroll.jpg', 'priest/paper/pad.jpg', 'confirmButton.jpg')
 
 upgrade_scroll_position = []
 confirm_button_position = []
 item_positions = []
 upgraded_items = []
+stage = 1
+max_stage = 7
 
 for i in list(range(3))[::-1]:
     print('Starting in ', i + 1)
     sleep(1)
 
+print('Get ready! All upgradable slots will be upgraded to level +{}.'.format(max_stage + 1))
 loop_time = time()
 
 state = StateEnum.INITIALIZING
 
+DEBUG = DebugEnum.UPGRADE_SCROLL
+
 
 def detect_upgrade_scroll():
-    global upgrade_scroll_position
+    global upgrade_scroll_position, DEBUG
 
     if len(upgrade_scroll_position):
         return upgrade_scroll_position
 
     rectangles = vision.findUpgradeScroll(screenshot, 0.7)
     positions = vision.get_click_points(rectangles)
+
+    if not positions:
+        print('There is no upgrade scroll in your inventory.')
+        stop()
+
     target = wincap.get_screen_position(positions[0])
+
+    if DEBUG == DebugEnum.UPGRADE_SCROLL:
+        image = vision.draw_crosshairs(screenshot, positions)
+        cv.imshow('Display', image)
 
     upgrade_scroll_position = target
 
@@ -54,14 +76,23 @@ def detect_upgrade_scroll():
 
 
 def detect_confirm_button():
-    global confirm_button_position
+    global confirm_button_position, DEBUG
 
     if len(confirm_button_position):
         return confirm_button_position
 
     rectangles = vision.findConfirmButton(screenshot, 0.7)
     positions = vision.get_click_points(rectangles)
+
+    if not positions:
+        print("Did you open the upgrade window? I couldn't detect the confirm button.")
+        stop()
+
     target = wincap.get_screen_position(positions[0])
+
+    if DEBUG == DebugEnum.CONFIRM_BUTTON:
+        image = vision.draw_crosshairs(screenshot, positions)
+        cv.imshow('Display', image)
 
     confirm_button_position = target
 
@@ -92,13 +123,21 @@ def upgrade_the_item():
 
 
 def initialize_upgradable_items():
-    global item_positions
+    global item_positions, DEBUG
 
     if len(item_positions):
         return item_positions
 
     rectangles = vision.find(screenshot, 0.8)
     item_positions = vision.get_click_points(rectangles)
+
+    if not item_positions:
+        print("I couldn't find any upgradable item. Shutting down the bot.")
+        stop()
+
+    if DEBUG == DebugEnum.UPGRADABLE_ITEMS:
+        image = vision.draw_crosshairs(screenshot, item_positions)
+        cv.imshow('Display', image)
 
 
 def detect_and_click_first_upgradable_item():
@@ -112,17 +151,30 @@ def detect_and_click_first_upgradable_item():
             break
 
 
+def stop():
+    cv.destroyAllWindows()
+    sys.exit()
+
+
 def run():
-    global upgraded_items, item_positions
-    print(len(item_positions), len(upgraded_items))
+    global upgraded_items, item_positions, stage, max_stage
+
+    print('Total: {} Current: {}'.format(len(item_positions), len(upgraded_items)))
 
     if len(item_positions) == len(upgraded_items):
-        print('All items are upgraded. Preparing the next stage.')
-        upgraded_items = []
-        item_positions = []
-        sleep(1)
-        initialize_upgradable_items()
-        run()
+        if stage == max_stage:
+            print('All slots have been upgraded to the desired level: {} '.format(stage + 1))
+            stop()
+        else:
+            stage += 1
+
+            print('All items are upgraded. Preparing the next stage : {} '.format(stage + 1))
+
+            upgraded_items = []
+            item_positions = []
+            sleep(1)
+            initialize_upgradable_items()
+            run()
     else:
         detect_and_click_first_upgradable_item()
         sleep(0.2)
@@ -147,9 +199,9 @@ while True:
 
     detect_upgrade_scroll()
     detect_confirm_button()
-    initialize_upgradable_items()
+    # initialize_upgradable_items()
 
-    thread = Thread(target=run())
+    # thread = Thread(target=run())
 
     key = cv.waitKey(1) & 0xFF
 

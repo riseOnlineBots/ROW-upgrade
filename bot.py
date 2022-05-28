@@ -48,7 +48,7 @@ class RiseOnlineBot:
         self.window_h = window_size[1]
 
         # pre-load the needle image used to confirm our object detection
-        self.upgrading_item = cv.imread('magePad.jpg', cv.IMREAD_UNCHANGED)
+        self.upgrading_item = cv.imread('mage/heavyLeather/pad.jpg', cv.IMREAD_UNCHANGED)
         self.sort_button = cv.imread('sortButton.jpg', cv.IMREAD_UNCHANGED)
 
         # start bot in the initializing mode to allow us time to get setup.
