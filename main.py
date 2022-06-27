@@ -1,5 +1,6 @@
 import os
 import sys
+from threading import Thread
 from time import time, sleep
 
 import cv2 as cv
@@ -30,7 +31,7 @@ class DebugEnum:
 
 
 wincap = WindowCapture(None)
-vision = Vision('commonUpgradeScroll.jpg', 'priest/paper/pad.jpg', 'confirmButton.jpg')
+vision = Vision('commonUpgradeScroll.jpg', 'priest/paper/pauldron.jpg', 'confirmButton.jpg')
 
 upgrade_scroll_position = []
 confirm_button_position = []
@@ -48,7 +49,8 @@ loop_time = time()
 
 state = StateEnum.INITIALIZING
 
-DEBUG = DebugEnum.UPGRADE_SCROLL
+# DEBUG = DebugEnum.UPGRADABLE_ITEMS
+DEBUG = None
 
 
 def detect_upgrade_scroll():
@@ -199,9 +201,9 @@ while True:
 
     detect_upgrade_scroll()
     detect_confirm_button()
-    # initialize_upgradable_items()
+    initialize_upgradable_items()
 
-    # thread = Thread(target=run())
+    thread = Thread(target=run())
 
     key = cv.waitKey(1) & 0xFF
 
